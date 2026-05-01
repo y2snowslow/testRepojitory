@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ルネサスマイコン進化ゲーム</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&family=Fredoka:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/matter-js@0.19.0/build/matter.min.js"></script>
+<style>
+  :root {
+    --renesas-navy:  #1F3864;
+    --renesas-blue:  #0073CF;
+    --renesas-cyan:  #00B7BD;
+    --accent-pink:   #FF6FA5;
+    --accent-yellow: #FFD24A;
+    --bg-soft:       #F1FBFF;
+    --bg-cream:      #FFF9F0;
+    --panel:         #ffffff;
+    --ink:           #1F3864;
+    --ink-soft:      #607BA4;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background:
+      radial-gradient(circle at 20% 10%, #DFF6FF 0%, transparent 40%),
+      radial-gradient(circle at 80% 90%, #FFE3F1 0%, transparent 40%),
+      linear-gradient(135deg, #EAF7FF 0%, #FFF6FB 100%);
+    font-family: 'M PLUS Rounded 1c', 'Hiragino Sans', 'Yu Gothic', sans-serif;
+    color: var(--ink);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    overflow-x: hidden;
+  }
+  /* 背景ふわふわ装飾 */
+  body::before, body::after {
+    content: "";
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(40px);
+    opacity: 0.6;
+    pointer-events: none;
+    z-index: 0;
+  }
+  body::before { width: 240px; height: 240px; background: #BEE9FF; top: -60px; left: -60px; }
+  body::after  { width: 300px; height: 300px; background: #FFD6E8; bottom: -80px; right: -80px; }
+
+  #title-bar {
+    position: fixed;
+    top: 16px; left: 0; right: 0;
+    text-align: center;
+    z-index: 5;
+    pointer-events: none;
+  }
+  #title-bar .main {
+    font-family: 'Fredoka', 'M PLUS Rounded 1c', sans-serif;
+    font-weight: 700;
+    font-size: 22px;
+    color: var(--renesas-navy);
+    letter-spacing: 0.06em;
+  }
+  #title-bar .main .accent { color: var(--renesas-cyan); }
+  #title-bar .sub {
+    font-size: 11px; color: var(--ink-soft);
+    letter-spacing: 0.2em; margin-top: 2px;
+  }
+
+  #game-container {
+    display: flex;
+    gap: 18px;
+    align-items: flex-start;
+    margin-top: 50px;
+    position: relative;
+    z-index: 2;
+  }
+  #left-panel, #right-panel {
+    width: 210px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .panel {
+    background: var(--panel);
+    border-radius: 22px;
+    padding: 16px 18px;
+    box-shadow: 0 8px 30px rgba(31,56,100,0.08), 0 2px 6px rgba(31,56,100,0.04);
+    border: 2px solid #fff;
+    position: relative;
+    overflow: hidden;
+  }
+  .panel::after {
+    /* やわらかい装飾の丸 */
+    content: "";
+    position: absolute;
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    background: var(--renesas-cyan);
+    opacity: 0.06;
+    right: -15px; top: -15px;
+  }
+  .panel h2 {
+    font-size: 11px;
+    margin-bottom: 8px;
+    color: var(--renesas-cyan);
+    letter-spacing: 0.18em;
+    font-weight: 700;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .panel h2::before {
+    content: "";
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--renesas-cyan);
+  }
+  #score {
+    font-family: 'Fredoka', sans-serif;
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--renesas-navy);
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+  #high-score {
+    font-family: 'Fredoka', sans-serif;
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--accent-pink);
+  }
+  #next-preview {
+    width: 100%;
+    height: 80px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  .mcu-chip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: var(--ink);
+    font-weight: 700;
+    font-size: 10px;
+    text-align: center;
+    line-height: 1;
+    padding: 4px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.10), inset 0 -3px 0 rgba(0,0,0,0.07);
+    border: 2px solid #fff;
+  }
+  #current-info {
+    font-size: 11px;
+    line-height: 1.6;
+    color: var(--ink-soft);
+  }
+  #current-info .mcu-name {
+    font-size: 16px;
+    color: var(--renesas-navy);
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  #current-info .lv {
+    display: inline-block;
+    background: var(--renesas-cyan);
+    color: #fff;
+    font-size: 9px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin-top: 4px;
+    letter-spacing: 0.1em;
+    font-weight: 700;
+  }
+  #canvas-wrap {
+    position: relative;
+    border-radius: 28px;
+    overflow: hidden;
+    box-shadow:
+      0 20px 60px rgba(31,56,100,0.18),
+      0 4px 12px rgba(31,56,100,0.08);
+    border: 4px solid #fff;
+  }
+  canvas {
+    display: block;
+    cursor: grab;
+  }
+  canvas:active { cursor: grabbing; }
+
+  #game-over {
+    position: absolute;
+    inset: 0;
+    background: rgba(31,56,100,0.85);
+    backdrop-filter: blur(6px);
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: #fff;
+    text-align: center;
+    padding: 20px;
+  }
+  #game-over.show { display: flex; animation: pop 0.4s ease-out; }
+  @keyframes pop {
+    0% { opacity: 0; transform: scale(0.92); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+  #game-over h1 {
+    font-family: 'Fredoka', sans-serif;
+    font-size: 42px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    color: #fff;
+    letter-spacing: 0.05em;
+    text-shadow: 0 4px 0 var(--accent-pink);
+  }
+  #game-over .final-mcu {
+    font-size: 16px;
+    color: var(--accent-yellow);
+    margin-bottom: 8px;
+    font-weight: 700;
+  }
+  #game-over .final-score {
+    font-family: 'Fredoka', sans-serif;
+    font-size: 30px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 24px;
+  }
+  button {
+    font-family: 'M PLUS Rounded 1c', sans-serif;
+    padding: 14px 32px;
+    background: linear-gradient(180deg, var(--renesas-cyan) 0%, var(--renesas-blue) 100%);
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.1em;
+    box-shadow: 0 6px 0 #1F3864, 0 12px 24px rgba(0,0,0,0.2);
+    transition: all 0.12s;
+  }
+  button:hover { transform: translateY(-2px); box-shadow: 0 8px 0 #1F3864, 0 14px 28px rgba(0,0,0,0.25); }
+  button:active { transform: translateY(4px); box-shadow: 0 2px 0 #1F3864, 0 4px 12px rgba(0,0,0,0.2); }
+
+  .evolution-list { list-style: none; font-size: 12px; }
+  .evolution-list li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px;
+    color: var(--ink-soft);
+    border-radius: 8px;
+    transition: all 0.2s;
+    font-weight: 500;
+  }
+  .evolution-list li.unlocked {
+    color: var(--renesas-navy);
+    background: linear-gradient(90deg, rgba(255,210,74,0.25), transparent);
+    font-weight: 700;
+  }
+  .swatch {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    border: 2px solid #fff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  .howto {
+    font-size: 12px;
+    line-height: 1.8;
+    color: var(--ink-soft);
+    font-weight: 500;
+  }
+  .howto b { color: var(--accent-pink); font-weight: 700; }
+
+  /* スコアフローター */
+  #floaters {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .floater {
+    position: absolute;
+    font-family: 'Fredoka', sans-serif;
+    font-weight: 700;
+    color: var(--accent-yellow);
+    text-shadow: 0 2px 0 var(--renesas-navy);
+    font-size: 22px;
+    animation: float-up 0.9s ease-out forwards;
+    pointer-events: none;
+  }
+  @keyframes float-up {
+    0% { opacity: 0; transform: translate(-50%, 0) scale(0.5); }
+    20% { opacity: 1; transform: translate(-50%, -10px) scale(1.2); }
+    100% { opacity: 0; transform: translate(-50%, -60px) scale(1); }
+  }
+</style>
+</head>
+<body>
+<div id="title-bar">
+  <div class="main">ルネサス<span class="accent">マイコン</span>進化ゲーム</div>
+  <div class="sub">RENESAS MCU EVOLUTION</div>
+</div>
+
+<div id="game-container">
+  <div id="left-panel">
+    <div class="panel">
+      <h2>SCORE</h2>
+      <div id="score">0</div>
+    </div>
+    <div class="panel">
+      <h2>HIGH SCORE</h2>
+      <div id="high-score">0</div>
+    </div>
+    <div class="panel">
+      <h2>NEXT</h2>
+      <div id="next-preview"></div>
+    </div>
+    <div class="panel">
+      <h2>NOW DROPPING</h2>
+      <div id="current-info">
+        <div class="mcu-name">-</div>
+        <div class="mcu-desc">-</div>
+        <span class="lv">Lv.1</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="canvas-wrap">
+    <div id="floaters"></div>
+    <div id="game-over">
+      <h1>GAME OVER</h1>
+      <div class="final-mcu" id="final-mcu"></div>
+      <div class="final-score">SCORE <span id="final-score">0</span></div>
+      <button id="restart-btn">もう一度あそぶ</button>
+    </div>
+  </div>
+
+  <div id="right-panel">
+    <div class="panel">
+      <h2>進化ライン</h2>
+      <ul class="evolution-list" id="evolution-list"></ul>
+    </div>
+    <div class="panel">
+      <h2>あそびかた</h2>
+      <div class="howto">
+        マウスを動かして<br>
+        <b>クリック</b>でドロップ<br>
+        同じMCU同士が<br>
+        ぶつかると<b>進化</b>！<br>
+        ピンクの線を<br>
+        こえたら<b>ゲームオーバー</b>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const { Engine, Render, Runner, Bodies, Composite, Events } = Matter;
+
+// ルネサスマイコン進化ライン (11段階)
+// 色は前半パステル → 後半ルネサスブランドカラーに収束
+const MCU_TYPES = [
+  { name: '78K0',      desc: '8bitレガシー',          radius: 18, color: '#FFB7C5', dark: false },
+  { name: 'RL78/G10',  desc: '16bit超低消費電力',     radius: 24, color: '#FFD580', dark: false },
+  { name: 'RL78/G14',  desc: '16bit汎用',             radius: 30, color: '#FFF3B0', dark: false },
+  { name: 'R8C',       desc: '16bitミドル',           radius: 38, color: '#B5EAD7', dark: false },
+  { name: 'RX130',     desc: '32bitエントリ',         radius: 46, color: '#A0E7E5', dark: false },
+  { name: 'RX231',     desc: '32bit低消費電力',       radius: 54, color: '#B5DEFF', dark: false },
+  { name: 'RX65N',     desc: '32bitミドル(HMI)',      radius: 62, color: '#C7B9FF', dark: false },
+  { name: 'RA6M5',     desc: 'Arm Cortex-M33',        radius: 72, color: '#FFB5E8', dark: false },
+  { name: 'RZ/A2M',    desc: 'Arm Cortex-A9 MPU',     radius: 84, color: '#00B7BD', dark: true  },
+  { name: 'RH850/U2A', desc: '車載MCU',               radius: 96, color: '#0073CF', dark: true  },
+  { name: 'R-Car V4H', desc: '車載ADAS SoC (最終)',   radius: 110, color: '#1F3864', dark: true  }
+];
+
+const WIDTH = 420;
+const HEIGHT = 640;
+const DROP_Y = 50;
+const DANGER_Y = 110;
+const WALL = 18;
+
+const engine = Engine.create();
+engine.gravity.y = 1.05;
+const world = engine.world;
+
+const canvas = document.createElement('canvas');
+canvas.width = WIDTH;
+canvas.height = HEIGHT;
+document.getElementById('canvas-wrap').prepend(canvas);
+
+const render = Render.create({
+  canvas: canvas,
+  engine: engine,
+  options: {
+    width: WIDTH,
+    height: HEIGHT,
+    wireframes: false,
+    background: 'transparent'
+  }
+});
+Render.run(render);
+const runner = Runner.create();
+Runner.run(runner, engine);
+
+// 壁 (見た目は描画でカスタム)
+const wallStyle = { isStatic: true, render: { visible: false } };
+const wallBottom = Bodies.rectangle(WIDTH/2, HEIGHT - WALL/2, WIDTH, WALL, wallStyle);
+const wallLeft   = Bodies.rectangle(WALL/2, HEIGHT/2, WALL, HEIGHT, wallStyle);
+const wallRight  = Bodies.rectangle(WIDTH - WALL/2, HEIGHT/2, WALL, HEIGHT, wallStyle);
+Composite.add(world, [wallBottom, wallLeft, wallRight]);
+
+// ゲーム状態
+let score = 0;
+let highScore = parseInt(localStorage.getItem('renesas-suika-high') || '0');
+let nextLevel = randomDropLevel();
+let currentLevel = randomDropLevel();
+let dropX = WIDTH / 2;
+let canDrop = true;
+let gameOver = false;
+const merged = new Set();
+const recentDrops = new Map();
+const unlockedLevels = new Set([0,1,2,3,4]);
+let highestEverLevel = 0;
+const popEffects = []; // {x, y, r, age, color}
+
+function randomDropLevel() {
+  return Math.floor(Math.random() * 5);
+}
+
+function createMCU(level, x, y) {
+  const mcu = MCU_TYPES[level];
+  const body = Bodies.circle(x, y, mcu.radius, {
+    restitution: 0.18,
+    friction: 0.45,
+    frictionStatic: 0.55,
+    density: 0.001 + level * 0.0004,
+    render: { fillStyle: mcu.color }
+  });
+  body.mcuLevel = level;
+  body.spawnTime = performance.now();
+  return body;
+}
+
+function dropMCU() {
+  if (!canDrop || gameOver) return;
+  const body = createMCU(currentLevel, dropX, DROP_Y);
+  Composite.add(world, body);
+  recentDrops.set(body.id, 0);
+  currentLevel = nextLevel;
+  nextLevel = randomDropLevel();
+  canDrop = false;
+  setTimeout(() => { canDrop = true; }, 450);
+  updateUI();
+}
+
+function clampDropX(x) {
+  const r = MCU_TYPES[currentLevel].radius;
+  return Math.max(WALL + r, Math.min(WIDTH - WALL - r, x));
+}
+
+canvas.addEventListener('mousemove', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left) * (WIDTH / rect.width);
+  dropX = clampDropX(x);
+});
+canvas.addEventListener('click', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left) * (WIDTH / rect.width);
+  dropX = clampDropX(x);
+  dropMCU();
+});
+canvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.touches[0].clientX - rect.left) * (WIDTH / rect.width);
+  dropX = clampDropX(x);
+}, { passive: false });
+canvas.addEventListener('touchend', (e) => { e.preventDefault(); dropMCU(); }, { passive: false });
+
+// マージ
+Events.on(engine, 'collisionStart', (event) => {
+  for (const pair of event.pairs) {
+    const a = pair.bodyA;
+    const b = pair.bodyB;
+    if (a.mcuLevel === undefined || b.mcuLevel === undefined) continue;
+    if (a.mcuLevel !== b.mcuLevel) continue;
+    if (merged.has(a.id) || merged.has(b.id)) continue;
+    if (a.mcuLevel >= MCU_TYPES.length - 1) continue;
+
+    merged.add(a.id);
+    merged.add(b.id);
+    const newLevel = a.mcuLevel + 1;
+    const nx = (a.position.x + b.position.x) / 2;
+    const ny = (a.position.y + b.position.y) / 2;
+    Composite.remove(world, a);
+    Composite.remove(world, b);
+    const newBall = createMCU(newLevel, nx, ny);
+    Composite.add(world, newBall);
+    recentDrops.set(newBall.id, 0);
+
+    const gain = (newLevel + 1) * 10;
+    score += gain;
+    if (score > highScore) {
+      highScore = score;
+      localStorage.setItem('renesas-suika-high', String(highScore));
+    }
+    if (newLevel > highestEverLevel) highestEverLevel = newLevel;
+    unlockedLevels.add(newLevel);
+    updateUI();
+
+    // ぽよん♪ エフェクト
+    popEffects.push({ x: nx, y: ny, r: MCU_TYPES[newLevel].radius, age: 0, color: MCU_TYPES[newLevel].color });
+    spawnFloater(nx, ny, '+' + gain);
+  }
+});
+
+function spawnFloater(x, y, text) {
+  const fl = document.getElementById('floaters');
+  const div = document.createElement('div');
+  div.className = 'floater';
+  const rect = canvas.getBoundingClientRect();
+  div.style.left = (x * (rect.width / WIDTH)) + 'px';
+  div.style.top  = (y * (rect.height / HEIGHT)) + 'px';
+  div.textContent = text;
+  fl.appendChild(div);
+  setTimeout(() => div.remove(), 900);
+}
+
+// ===== 描画 =====
+Events.on(render, 'beforeRender', () => {
+  const ctx = render.context;
+  ctx.save();
+  ctx.fillStyle = '#FFF9F0';
+  ctx.fillRect(0, 0, WIDTH, HEIGHT);
+  ctx.fillStyle = 'rgba(0,183,189,0.07)';
+  for (let y = 30; y < HEIGHT; y += 28) {
+    for (let x = 30; x < WIDTH; x += 28) {
+      ctx.beginPath();
+      ctx.arc(x + ((Math.floor(y/28)%2)*14), y, 2.5, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+});
+
+function lighten(hex, amount) {
+  const c = hex.replace('#','');
+  const r = parseInt(c.substr(0,2), 16);
+  const g = parseInt(c.substr(2,2), 16);
+  const b = parseInt(c.substr(4,2), 16);
+  const lr = Math.min(255, Math.round(r + (255 - r) * amount));
+  const lg = Math.min(255, Math.round(g + (255 - g) * amount));
+  const lb = Math.min(255, Math.round(b + (255 - b) * amount));
+  return 'rgb(' + lr + ',' + lg + ',' + lb + ')';
+}
+
+function drawSparkle(ctx, x, y, size, color) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    const r = i % 2 === 0 ? size : size * 0.4;
+    ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawCuteMCU(ctx, body) {
+  const mcu = MCU_TYPES[body.mcuLevel];
+  const r = mcu.radius;
+  const px = body.position.x;
+  const py = body.position.y;
+
+  ctx.save();
+  ctx.translate(px, py);
+  ctx.rotate(body.angle);
+
+  ctx.beginPath();
+  ctx.fillStyle = 'rgba(31,56,100,0.18)';
+  ctx.ellipse(0, r * 0.95, r * 0.85, r * 0.15, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  const grad = ctx.createRadialGradient(-r*0.3, -r*0.4, r*0.1, 0, 0, r);
+  grad.addColorStop(0, lighten(mcu.color, 0.25));
+  grad.addColorStop(1, mcu.color);
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI*2);
+  ctx.fill();
+
+  ctx.strokeStyle = mcu.dark ? 'rgba(255,255,255,0.3)' : 'rgba(31,56,100,0.25)';
+  ctx.lineWidth = Math.max(1.5, r*0.04);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.fillStyle = 'rgba(255,255,255,0.45)';
+  ctx.ellipse(-r*0.35, -r*0.45, r*0.25, r*0.15, -0.4, 0, Math.PI*2);
+  ctx.fill();
+
+  const faceColor = mcu.dark ? '#fff' : '#1F3864';
+  const eyeR = Math.max(2, r * 0.085);
+  const eyeOff = r * 0.28;
+  ctx.fillStyle = faceColor;
+  ctx.beginPath();
+  ctx.arc(-eyeOff, -r * 0.08, eyeR, 0, Math.PI*2);
+  ctx.arc( eyeOff, -r * 0.08, eyeR, 0, Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle = mcu.dark ? 'rgba(31,56,100,0.6)' : 'rgba(255,255,255,0.9)';
+  const sparkleR = eyeR * 0.4;
+  ctx.beginPath();
+  ctx.arc(-eyeOff + eyeR*0.3, -r*0.08 - eyeR*0.3, sparkleR, 0, Math.PI*2);
+  ctx.arc( eyeOff + eyeR*0.3, -r*0.08 - eyeR*0.3, sparkleR, 0, Math.PI*2);
+  ctx.fill();
+
+  ctx.strokeStyle = faceColor;
+  ctx.lineWidth = Math.max(1.5, r*0.045);
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.arc(0, r*0.05, r*0.28, 0.2 * Math.PI, 0.8 * Math.PI);
+  ctx.stroke();
+
+  ctx.fillStyle = mcu.dark ? 'rgba(255,180,200,0.5)' : 'rgba(255,120,160,0.35)';
+  const cheekR = r * 0.11;
+  const cheekOff = r * 0.45;
+  ctx.beginPath();
+  ctx.arc(-cheekOff, r * 0.1, cheekR, 0, Math.PI*2);
+  ctx.arc( cheekOff, r * 0.1, cheekR, 0, Math.PI*2);
+  ctx.fill();
+
+  if (r >= 22) {
+    ctx.fillStyle = faceColor;
+    ctx.font = '700 ' + Math.max(8, r/4.5) + "px 'M PLUS Rounded 1c', sans-serif";
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(mcu.name, 0, r * 0.55);
+  }
+
+  if (body.mcuLevel === MCU_TYPES.length - 1) {
+    drawSparkle(ctx, -r*0.6, -r*0.5, r*0.12, '#FFD24A');
+    drawSparkle(ctx,  r*0.55, -r*0.55, r*0.1, '#FFD24A');
+    drawSparkle(ctx,  r*0.65,  r*0.4, r*0.08, '#FF6FA5');
+  }
+
+  ctx.restore();
+}
+
+Events.on(render, 'afterRender', () => {
+  const ctx = render.context;
+
+  ctx.fillStyle = '#1F3864';
+  ctx.fillRect(0, HEIGHT - WALL, WIDTH, WALL);
+  ctx.fillRect(0, 0, WALL, HEIGHT);
+  ctx.fillRect(WIDTH - WALL, 0, WALL, HEIGHT);
+  ctx.fillStyle = '#00B7BD';
+  ctx.fillRect(0, HEIGHT - WALL, WIDTH, 3);
+  ctx.fillRect(WALL - 3, 0, 3, HEIGHT);
+  ctx.fillRect(WIDTH - WALL, 0, 3, HEIGHT);
+
+  ctx.strokeStyle = '#FF6FA5';
+  ctx.lineWidth = 2.5;
+  ctx.setLineDash([10, 6]);
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(WALL, DANGER_Y);
+  ctx.lineTo(WIDTH - WALL, DANGER_Y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#FF6FA5';
+  ctx.font = "700 10px 'M PLUS Rounded 1c', sans-serif";
+  ctx.textAlign = 'left';
+  ctx.fillText('♡ DANGER LINE ♡', WALL + 6, DANGER_Y - 6);
+
+  const bodies = Composite.allBodies(world);
+  for (const body of bodies) {
+    if (body.mcuLevel === undefined) continue;
+    drawCuteMCU(ctx, body);
+  }
+
+  if (!gameOver) {
+    const r = MCU_TYPES[currentLevel].radius;
+    ctx.save();
+    ctx.globalAlpha = 0.85;
+    const wobble = Math.sin(performance.now() / 300) * 1.5;
+    drawCuteMCU(ctx, {
+      mcuLevel: currentLevel,
+      position: { x: dropX + wobble, y: DROP_Y },
+      angle: 0
+    });
+    ctx.restore();
+
+    ctx.strokeStyle = 'rgba(31,56,100,0.18)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 6]);
+    ctx.beginPath();
+    ctx.moveTo(dropX, DROP_Y + r);
+    ctx.lineTo(dropX, HEIGHT - WALL);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  for (let i = popEffects.length - 1; i >= 0; i--) {
+    const ef = popEffects[i];
+    ef.age++;
+    const t = ef.age / 25;
+    if (t >= 1) { popEffects.splice(i, 1); continue; }
+    ctx.save();
+    ctx.globalAlpha = (1 - t) * 0.6;
+    ctx.strokeStyle = ef.color;
+    ctx.lineWidth = 4 * (1 - t);
+    ctx.beginPath();
+    ctx.arc(ef.x, ef.y, ef.r * (1 + t * 0.6), 0, Math.PI*2);
+    ctx.stroke();
+    ctx.restore();
+  }
+});
+
+Events.on(engine, 'afterUpdate', () => {
+  const toDelete = [];
+  for (const [id, frames] of recentDrops) {
+    if (frames > 70) toDelete.push(id);
+    else recentDrops.set(id, frames + 1);
+  }
+  for (const id of toDelete) recentDrops.delete(id);
+
+  if (gameOver) return;
+
+  const bodies = Composite.allBodies(world);
+  for (const body of bodies) {
+    if (body.mcuLevel === undefined) continue;
+    if (recentDrops.has(body.id)) continue;
+    const top = body.position.y - MCU_TYPES[body.mcuLevel].radius;
+    if (top < DANGER_Y && Math.abs(body.velocity.y) < 0.6) {
+      body.dangerFrames = (body.dangerFrames || 0) + 1;
+      if (body.dangerFrames > 100) {
+        triggerGameOver();
+        return;
+      }
+    } else {
+      body.dangerFrames = 0;
+    }
+  }
+});
+
+function triggerGameOver() {
+  gameOver = true;
+  document.getElementById('final-score').textContent = score;
+  document.getElementById('final-mcu').textContent =
+    '到達MCU: ' + MCU_TYPES[highestEverLevel].name;
+  document.getElementById('game-over').classList.add('show');
+}
+
+document.getElementById('restart-btn').addEventListener('click', () => {
+  const bodies = Composite.allBodies(world);
+  for (const b of bodies) {
+    if (b.mcuLevel !== undefined) Composite.remove(world, b);
+  }
+  score = 0;
+  gameOver = false;
+  highestEverLevel = 0;
+  merged.clear();
+  recentDrops.clear();
+  unlockedLevels.clear();
+  [0,1,2,3,4].forEach(l => unlockedLevels.add(l));
+  currentLevel = randomDropLevel();
+  nextLevel = randomDropLevel();
+  document.getElementById('game-over').classList.remove('show');
+  updateUI();
+});
+
+function makeChip(level, sizeOverride) {
+  const m = MCU_TYPES[level];
+  const size = sizeOverride || Math.min(64, m.radius * 1.3);
+  const textColor = m.dark ? '#fff' : '#1F3864';
+  return '<div class="mcu-chip" style="' +
+    'width:' + size + 'px;height:' + size + 'px;' +
+    'background: radial-gradient(circle at 35% 30%, ' + lighten(m.color, 0.3) + ', ' + m.color + ');' +
+    'color:' + textColor + ';' +
+    'font-size:' + Math.max(9, size/6) + 'px;' +
+    '">' + m.name + '</div>';
+}
+
+function updateUI() {
+  document.getElementById('score').textContent = score.toLocaleString();
+  document.getElementById('high-score').textContent = highScore.toLocaleString();
+  document.getElementById('next-preview').innerHTML = makeChip(nextLevel);
+
+  const cm = MCU_TYPES[currentLevel];
+  document.getElementById('current-info').innerHTML =
+    '<div class="mcu-name">' + cm.name + '</div>' +
+    '<div>' + cm.desc + '</div>' +
+    '<span class="lv">Lv.' + (currentLevel + 1) + ' / ' + MCU_TYPES.length + '</span>';
+
+  const items = document.querySelectorAll('#evolution-list li');
+  items.forEach((li, i) => {
+    li.classList.toggle('unlocked', unlockedLevels.has(i));
+  });
+}
+
+function buildEvolutionList() {
+  const ul = document.getElementById('evolution-list');
+  ul.innerHTML = MCU_TYPES.map((m, i) =>
+    '<li data-level="' + i + '">' +
+    '<span class="swatch" style="background:' + m.color + '"></span>' +
+    '<span>' + (i+1) + '. ' + m.name + '</span>' +
+    '</li>').join('');
+}
+
+buildEvolutionList();
+updateUI();
+</script>
+</body>
+</html>
